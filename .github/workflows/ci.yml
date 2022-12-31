@@ -21,16 +21,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - run: cargo run -- download-increment downloads/ > to-process.json
-#      - name: Run
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: run
-#          args:
-      - name: Run
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -- process to-process.json
+      - run: cargo run -- process to-process.json
 #      - uses: EndBug/add-and-commit@v9
 #        with:
 #          add: 'state.json'
