@@ -310,7 +310,6 @@ fn process(state: PathBuf) {
             std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
             std::env::set_var("AWS_DEFAULT_REGION", "us-east-1");
             let config = aws_config::load_from_env().await;
-            println!("Region: {:?}", config.region());
             let client = aws_sdk_sts::Client::new(&config);
             match client.get_caller_identity().send().await {
                 Ok(_) => {
@@ -429,6 +428,7 @@ fn download_releases(
                 })
                 .unwrap()
             );
+            eprintln!("Downloaded {:?}", file);
             file.upload_time
         })
         .collect();
