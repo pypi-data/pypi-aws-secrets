@@ -1,35 +1,30 @@
 use chrono::prelude::*;
 use chrono::Duration;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
-use std::fs::{DirEntry, File};
+use std::collections::HashMap;
+use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::io::{BufReader, BufWriter};
+use std::path::PathBuf;
 use std::process::Command;
 use std::{fs, io};
-use std::io::{BufReader, BufWriter};
-use aws_sdk_sts::error::GetCallerIdentityError;
-use aws_sdk_sts::output::GetCallerIdentityOutput;
-use aws_sdk_sts::types::SdkError;
 
 use clap::Parser;
 use rayon::prelude::*;
-use reqwest::StatusCode;
-use serde_json;
-use serde_json::Value as JsonValue;
-use xmlrpc::{Request, Value as XmlValue};
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use temp_dir::TempDir;
 use url::Url;
+use xmlrpc::{Request, Value as XmlValue};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ProjectFile {
     pub url: Url,
     pub filename: String,
-    #[serde(rename="upload_time_iso_8601")]
-    pub upload_time: DateTime<Utc>
+    #[serde(rename = "upload_time_iso_8601")]
+    pub upload_time: DateTime<Utc>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -81,7 +76,6 @@ pub struct State {
     last_timestamp: DateTime<Utc>,
 }
 
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -131,7 +125,7 @@ fn main() {
             since,
         } => {
             download(downloads_dir, since);
-        },
+        }
         Action::DownloadIncrement { downloads_dir } => {
             let state = read_state();
             let new_time = download(downloads_dir, state.last_timestamp);
@@ -164,7 +158,7 @@ fn main() {
 fn update_state(last_timestamp: DateTime<Utc>) {
     let state_file = File::create("state.json").unwrap();
     let writer = BufWriter::new(state_file);
-    serde_json::to_writer(writer, &State{ last_timestamp }).unwrap();
+    serde_json::to_writer(writer, &State { last_timestamp }).unwrap();
 }
 
 fn read_state() -> State {
@@ -205,8 +199,7 @@ fn process(state: PathBuf) {
                     .stdout
                     .lines()
                     .flatten()
-                    .map(|line| serde_json::from_str(&line))
-                    .flatten()
+                    .flat_map(|line| serde_json::from_str(&line))
                     .collect();
                 if !matches.is_empty() {
                     println!("Found matches for {:?}", v);
@@ -231,7 +224,7 @@ fn process(state: PathBuf) {
     let aws_keys: Vec<_> = to_continue_processing.into_par_iter().map(|p| {
         let output_dir = TempDir::new().unwrap();
         let output_path = output_dir.path();
-        let output = Command::new("unar")
+        let _output = Command::new("unar")
             .args([
                 "-k",
                 "skip",
@@ -257,8 +250,7 @@ fn process(state: PathBuf) {
             .stdout
             .lines()
             .flatten()
-            .map(|line| serde_json::from_str(&line))
-            .flatten()
+            .flat_map(|line| serde_json::from_str(&line))
             .collect();
         let mut found = vec![];
 
@@ -313,7 +305,7 @@ fn process(state: PathBuf) {
     // Aws SDK is all async. Bit annoying.
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let checker = runtime.spawn(async {
-        let mut  valid_keys = vec![];
+        let mut valid_keys = vec![];
         println!("Trying keys...");
         for key in aws_keys {
             println!("Key {:?}", key);
@@ -322,19 +314,18 @@ fn process(state: PathBuf) {
             let config = aws_config::load_from_env().await;
             println!("Region: {:?}", config.region());
             let client = aws_sdk_sts::Client::new(&config);
-            match  client.get_caller_identity().send().await {
+            match client.get_caller_identity().send().await {
                 Ok(_) => {
                     valid_keys.push(key);
                 }
                 Err(e) => {
                     eprintln!("sts error: {:?}", e);
-                    continue
+                    continue;
                 }
             }
-
         }
         // tokio::time::sleep(core::time::Duration::from_secs(2)).await;
-        return valid_keys
+        valid_keys
     });
     let res = runtime.block_on(checker).unwrap();
 
@@ -342,7 +333,6 @@ fn process(state: PathBuf) {
         println!("\nFound key! {:?}", valid_key);
     }
 }
-
 
 fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
     // fs::create_dir(&args.downloads_dir).unwrap();
@@ -359,7 +349,7 @@ fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
         panic!("Unknown response!")
     };
 
-    let new_uploads: Vec<(&String, &String, &str)> = values
+    let grouped_uploads: HashMap<_, Vec<_>> = values
         .iter()
         .filter_map(|value| match value {
             XmlValue::Array(v) => Some(v),
@@ -367,18 +357,14 @@ fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
         })
         .filter_map(|value| match &value[..] {
             [XmlValue::String(name), XmlValue::String(version), _, XmlValue::String(action)]
-            if action.starts_with("add ") && !action.ends_with(".exe") =>
-                {
-                    let file_name = action.split(' ').last().unwrap();
-                    Some((name, version, file_name))
-                }
+                if action.starts_with("add ") && !action.ends_with(".exe") =>
+            {
+                let file_name = action.split(' ').last().unwrap();
+                Some((name, version, file_name))
+            }
             _ => None,
         })
         .sorted()
-        .collect();
-
-    let grouped_uploads: HashMap<_, Vec<_>> = new_uploads
-        .into_iter()
         .group_by(|(name, version, _)| (*name, *version))
         .into_iter()
         .map(|(key, value)| (key, value.map(|(_, _, f)| f).collect()))
@@ -388,14 +374,17 @@ fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
     download_releases(grouped_uploads, downloads_dir)
 }
 
-fn download_releases(releases: HashMap<(&String, &String), Vec<&str>>, downloads_dir: PathBuf) -> DateTime<Utc> {
+fn download_releases(
+    releases: HashMap<(&String, &String), Vec<&str>>,
+    downloads_dir: PathBuf,
+) -> DateTime<Utc> {
     let mut download_times: Vec<_> = releases
         .into_par_iter()
         .filter_map(|((name, version), files)| {
             let url = format!("https://pypi.org/pypi/{name}/{version}/json");
             let response = match reqwest::blocking::get(&url) {
                 Ok(v) => v,
-                Err(e) => {
+                Err(_e) => {
                     println!("error!");
                     return None;
                 }
@@ -415,12 +404,12 @@ fn download_releases(releases: HashMap<(&String, &String), Vec<&str>>, downloads
             info.remove("description");
             let package_info: PackageVersion =
                 serde_json::from_value(original_json_response.clone())
-                    .expect(format!("Error: {}", url).as_str());
+                    .unwrap_or_else(|_| panic!("Error: {}", url));
 
-            let mut matches: Vec<_> = package_info
+            let matches: Vec<_> = package_info
                 .urls
                 .into_iter()
-                .filter(|v| files.contains(&&&v.filename.as_str()))
+                .filter(|v| files.contains(&v.filename.as_str()))
                 .map(|v| (name, version, v))
                 .collect();
             Some(matches)
@@ -440,10 +429,11 @@ fn download_releases(releases: HashMap<(&String, &String), Vec<&str>>, downloads
                     name: name.clone(),
                     version: version.clone(),
                 })
-                    .unwrap()
+                .unwrap()
             );
             file.upload_time
-        }).collect();
+        })
+        .collect();
     download_times.sort();
-    return download_times[download_times.len() -1]
+    download_times[download_times.len() - 1]
 }
