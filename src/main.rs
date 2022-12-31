@@ -308,6 +308,7 @@ fn process(state: PathBuf) {
             println!("Key {:?}", key);
             std::env::set_var("AWS_ACCESS_KEY_ID", &key.access_key);
             std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
+            std::env::set_var("AWS_DEFAULT_REGION", "us-east-1");
             let config = aws_config::load_from_env().await;
             println!("Region: {:?}", config.region());
             let client = aws_sdk_sts::Client::new(&config);
