@@ -32,16 +32,12 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
       - run: cargo build --release
-      - run: mkdir downloads/
-#      - run: cargo run -- download-increment downloads/ > to-process.json
-      - run: cargo run --release -- download-relative downloads/ 24 > to-process.json
-#      - run: cargo run --release -- download-specific downloads/ mathlogic-s3-test 1.1.1 mathlogic-s3-test-1.1.1.tar.gz > to-process.json
-      - run: cargo run --release -- process to-process.json
-#      - uses: EndBug/add-and-commit@v9
-#        with:
-#          add: 'state.json'
-#          # From https://github.community/t/github-actions-bot-email-address/17204/5
-#          author_email: "41898282+github-actions[bot]@users.noreply.github.com"
-#          author_name: "commit-bot"
-#          message: "Scheduled changelog data update from Github Actions"
-#          push: true
+      - run: cargo run --release -- process
+      - uses: EndBug/add-and-commit@v9
+        with:
+          add: 'state.json'
+          # From https://github.community/t/github-actions-bot-email-address/17204/5
+          author_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          author_name: "commit-bot"
+          message: "Scheduled changelog data update from Github Actions"
+          push: true
