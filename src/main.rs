@@ -5,15 +5,15 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::{fs, io};
+use std::path::{PathBuf};
+
+use std::{io};
 
 use clap::Parser;
 use rayon::prelude::*;
 
-use lazy_static::lazy_static;
-use regex::Regex;
+
+
 use serde::{Deserialize, Serialize};
 use temp_dir::TempDir;
 use url::Url;
@@ -159,7 +159,7 @@ fn process(items: Vec<PackageToProcess>) {
     extract_and_check_keys(to_continue_processing);
 }
 
-fn find_interesting_packages(items: Vec<PackageToProcess>) -> Vec<PackageToProcess> {
+fn find_interesting_packages(_items: Vec<PackageToProcess>) -> Vec<PackageToProcess> {
     unimplemented!()
     // items
     //     .into_par_iter()
@@ -198,7 +198,7 @@ fn find_interesting_packages(items: Vec<PackageToProcess>) -> Vec<PackageToProce
     //     .collect()
 }
 
-fn extract_and_check_keys(items: Vec<PackageToProcess>) {
+fn extract_and_check_keys(_items: Vec<PackageToProcess>) {
     unimplemented!()
     // let aws_keys: Vec<_> = items.into_par_iter().map(|p| {
     //     // https://inspector.pypi.io/project/hadata/2.5.111/packages/0e/ec/baf1a440e204e00ddb9fdc9a45cfb7bd0100ac22ae51670e9e4854a1adf2/hadata-2.5.111-py2.py3-none-any.whl/
@@ -404,12 +404,12 @@ fn download_releases(releases: Vec<(String, String, ProjectFile)>) -> Vec<Packag
             let mut resp = reqwest::blocking::get(file.url.clone()).unwrap();
             io::copy(&mut resp, &mut out).expect("Error copying");
             PackageToProcess {
-                pypi_file: file.clone(),
+                pypi_file: file,
                 temp_dir: TempDir::new().unwrap(),
                 download_location,
                 extract_location,
-                name: name.clone(),
-                version: version.clone(),
+                name,
+                version,
             }
         })
         .collect()
