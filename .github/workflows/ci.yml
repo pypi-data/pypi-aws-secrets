@@ -32,9 +32,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
       - run: cargo build
-#      - run: mkdir downloads/
+      - run: mkdir downloads/
 #      - run: cargo run -- download-increment downloads/ > to-process.json
-#      - run: cargo run -- process to-process.json
+      - run: cargo run -- download-relative downloads/ 5 > to-process.json
+      - run: cargo run -- process to-process.json
 #      - uses: EndBug/add-and-commit@v9
 #        with:
 #          add: 'state.json'
