@@ -147,6 +147,7 @@ fn main() {
             } else {
                 release_info
             };
+            println!("Downloading {} releases", release_info.len());
             let to_process = download_releases(limited_info);
             process(to_process);
             update_state(max_ts);
