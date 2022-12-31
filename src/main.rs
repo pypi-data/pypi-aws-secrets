@@ -397,7 +397,7 @@ fn find_new_pypi_releases(
             _ => None,
         }).collect();
 
-    let last_timestamp = items.iter().map(|(_, _, _, ts)| ts).max().unwrap().clone();
+    let last_timestamp = *items.iter().map(|(_, _, _, ts)| ts).max().unwrap();
     let items_without_timestamp = items.into_iter().map(|(n, v, f, _)| (n, v, f));
 
     let items_hashmap = items_without_timestamp
