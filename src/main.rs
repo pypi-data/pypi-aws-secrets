@@ -310,12 +310,11 @@ fn process(state: PathBuf) {
         found
     }).flatten().collect();
 
-    // println!("keys: {:?}", aws_keys);
-
     // Aws SDK is all async. Bit annoying.
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let checker = runtime.spawn(async {
         let mut  valid_keys = vec![];
+        println!("Trying keys...");
         for key in aws_keys {
             std::env::set_var("AWS_ACCESS_KEY_ID", &key.access_key);
             std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
@@ -326,6 +325,7 @@ fn process(state: PathBuf) {
                     valid_keys.push(key);
                 }
                 Err(e) => {
+                    eprintln!("sts error: {}", e);
                     continue
                 }
             }
