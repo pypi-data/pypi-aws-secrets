@@ -34,7 +34,8 @@ jobs:
       - run: cargo build --release
       - run: mkdir downloads/
 #      - run: cargo run -- download-increment downloads/ > to-process.json
-      - run: cargo run --release -- download-relative downloads/ 24 > to-process.json
+#      - run: cargo run --release -- download-relative downloads/ 24 > to-process.json
+      - run: cargo run --release -- download-specific downloads/ mathlogic-s3-test 1.1.1 mathlogic-s3-test-1.1.1.tar.gz > to-process.json
       - run: cargo run --release -- process to-process.json
 #      - uses: EndBug/add-and-commit@v9
 #        with:
