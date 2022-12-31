@@ -20,12 +20,12 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-
-      - name: Run
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -- download-increment downloads/ > to-process.json
+      - run: cargo run -- download-increment downloads/ > to-process.json
+#      - name: Run
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: run
+#          args:
       - name: Run
         uses: actions-rs/cargo@v1
         with:
