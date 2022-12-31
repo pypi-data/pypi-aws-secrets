@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{fs, io};
 
@@ -32,10 +32,12 @@ pub struct PackageVersion {
     pub urls: Vec<ProjectFile>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug)]
 pub struct PackageToProcess {
     pub pypi_file: ProjectFile,
-    pub local_file: PathBuf,
+    pub temp_dir: TempDir,
+    pub download_location: PathBuf,
+    pub extract_location: PathBuf,
     pub name: String,
     pub version: String,
 }
@@ -85,25 +87,15 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Action {
-    Download {
-        #[arg()]
-        downloads_dir: PathBuf,
+    Process {
         #[arg()]
         since: DateTime<Utc>,
     },
-    DownloadIncrement {
-        #[arg()]
-        downloads_dir: PathBuf,
-    },
-    DownloadRelative {
-        #[arg()]
-        downloads_dir: PathBuf,
+    ProcessRelative {
         #[arg()]
         hours: i64,
     },
-    DownloadSpecific {
-        #[arg()]
-        downloads_dir: PathBuf,
+    ProcessSpecific {
         #[arg()]
         project: String,
         #[arg()]
@@ -111,46 +103,34 @@ enum Action {
         #[arg()]
         file_name: String,
     },
-    Process {
-        #[arg()]
-        state: PathBuf,
-    },
 }
 
 fn main() {
     let args: Args = Args::parse();
     match args.action {
-        Action::Download {
-            downloads_dir,
-            since,
-        } => {
-            download(downloads_dir, since);
-        }
-        Action::DownloadIncrement { downloads_dir } => {
-            let state = read_state();
-            let new_time = download(downloads_dir, state.last_timestamp);
-            update_state(new_time);
-        }
-        Action::DownloadRelative {
-            downloads_dir,
-            hours,
-        } => {
+        Action::ProcessRelative { hours } => {
             let ts: DateTime<Utc> = Utc::now() - Duration::hours(hours);
-            download(downloads_dir, ts);
+            let new_files = find_new_pypi_releases(ts);
+            let release_info = fetch_release_info(new_files);
+            let to_process = download_releases(release_info);
+            process(to_process);
         }
-        Action::DownloadSpecific {
-            downloads_dir,
+        Action::ProcessSpecific {
             project,
             version,
             file_name,
         } => {
-            let file_name_str = file_name.as_str();
             let mut releases = HashMap::new();
-            releases.insert((&project, &version), vec![file_name_str]);
-            download_releases(releases, downloads_dir);
+            releases.insert((project, version), vec![file_name]);
+            let release_info = fetch_release_info(releases);
+            let to_process = download_releases(release_info);
+            process(to_process)
         }
-        Action::Process { state } => {
-            process(state);
+        Action::Process { since } => {
+            let new_files = find_new_pypi_releases(since);
+            let release_info = fetch_release_info(new_files);
+            let to_process = download_releases(release_info);
+            process(to_process);
         }
     };
 }
@@ -167,49 +147,8 @@ fn read_state() -> State {
     serde_json::from_reader(writer).unwrap()
 }
 
-fn process(state: PathBuf) {
-    let state_file = fs::File::open(state).expect("Error reading state");
-    let reader = io::BufReader::new(state_file);
-    let items: Vec<_> = serde_json::Deserializer::from_reader(reader)
-        .into_iter::<PackageToProcess>()
-        .flatten()
-        .collect();
-    let to_continue_processing: Vec<_> = items
-        .into_par_iter()
-        .map(|v| {
-            let output = Command::new("rg")
-                .args([
-                    "--pre",
-                    "./extract.sh",
-                    "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))",
-                    "--threads",
-                    "1",
-                    "-m",
-                    "1",
-                    "--json",
-                    v.local_file.to_str().unwrap(),
-                ])
-                .output()
-                .expect("Failed to run rg");
-            if !output.stderr.is_empty() {
-                eprintln!("Error! {}", String::from_utf8(output.stderr).unwrap());
-            } else {
-                // let out_json_lines: Vec<_> = .collect();
-                let matches: Vec<RgOutput> = output
-                    .stdout
-                    .lines()
-                    .flatten()
-                    .flat_map(|line| serde_json::from_str(&line))
-                    .collect();
-                if !matches.is_empty() {
-                    println!("Found {} matches for {:?}", matches.len(),  v);
-                    return Some(v);
-                }
-            }
-            None
-        })
-        .flatten()
-        .collect();
+fn process(items: Vec<PackageToProcess>) {
+    let to_continue_processing = find_interesting_packages(items);
     println!(
         "Total interesting packages: {}",
         to_continue_processing.len()
@@ -217,124 +156,167 @@ fn process(state: PathBuf) {
     if to_continue_processing.is_empty() {
         return;
     }
-
-    let aws_keys: Vec<_> = to_continue_processing.into_par_iter().map(|p| {
-        let output_dir = TempDir::new().unwrap();
-        let output_path = output_dir.path();
-        let _output = Command::new("unar")
-            .args([
-                "-k",
-                "skip",
-                "-q",
-                "-o",
-                output_path.to_str().unwrap(),
-                p.local_file.to_str().unwrap(),
-            ])
-            .output()
-            .expect("Failed to run unar");
-
-        let rg_output = Command::new("rg")
-            .args([
-                "--multiline",
-                "-o",
-                "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))",
-                "--json",
-                output_path.to_str().unwrap()
-            ])
-            .output()
-            .expect("Failed to run rg");
-        let matches: Vec<RgOutput> = rg_output
-            .stdout
-            .lines()
-            .flatten()
-            .flat_map(|line| serde_json::from_str(&line))
-            .collect();
-        let mut found = vec![];
-
-        // println!("{}", String::from_utf8(rg_output.stdout).unwrap());
-
-        for m in matches {
-            // extract path from extracted path
-            match m {
-                RgOutput::Match { line_number, lines, path } => {
-                    lazy_static! {
-                            static ref ACCESS_KEY_REGEX: Regex = Regex::new("(('|\")(?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16})('|\"))").unwrap();
-                            static ref SECRET_KEY_REGEX: Regex = Regex::new("(('|\")([a-zA-Z0-9+/]{40})('|\"))").unwrap();
-                    }
-
-                    let extracted_key_id = ACCESS_KEY_REGEX.find(&lines.text);
-                    let extracted_secret_key = SECRET_KEY_REGEX.find(&lines.text);
-
-                    let (key_match, secret_match) = match (extracted_key_id, extracted_secret_key) {
-                        (Some(km), Some(sm)) => {
-                            let key_str = &lines.text[km.range()];
-                            let secret_str = &lines.text[sm.range()];
-                            (key_str[1..(key_str.len() - 1)].to_string(), secret_str[1..(secret_str.len() - 1)].to_string())
-                        }
-                        _ => {
-                            eprintln!("Cannot find sub matches for {:?}", p);
-                            continue;
-                        }
-                    };
-
-                    println!("Lines: {:?}", lines);
-                    let temp_component_count = output_path.components().count();
-                    let path_components: Vec<_> = path.text.components().collect();
-                    let final_path: &PathBuf = &path_components[temp_component_count..].iter().collect();
-                    // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic-s3-test-1.0/mathlogic/credentials.py
-                    // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic/credentials.py
-                    let public_path = format!("https://inspector.pypi.io/project/{}/{}/{}/{}#line.{}", p.name, p.version, p.pypi_file.url.path(), final_path.to_str().unwrap(), line_number);
-                    // println!("path: {}", inspector_path);
-                    found.push(FoundKey {
-                        public_path,
-                        pypi_file: p.pypi_file.clone(),
-                        name: p.name.clone(),
-                        version: p.version.clone(),
-                        access_key: key_match,
-                        secret_key: secret_match,
-                    })
-                }
-            }
-        }
-        found
-    }).flatten().collect();
-
-    // Aws SDK is all async. Bit annoying.
-    let runtime = tokio::runtime::Runtime::new().unwrap();
-    let checker = runtime.spawn(async {
-        let mut valid_keys = vec![];
-        println!("Trying keys...");
-        for key in aws_keys {
-            println!("Key {:?}", key);
-            std::env::set_var("AWS_ACCESS_KEY_ID", &key.access_key);
-            std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
-            std::env::set_var("AWS_DEFAULT_REGION", "us-east-1");
-            let config = aws_config::load_from_env().await;
-            let client = aws_sdk_sts::Client::new(&config);
-            match client.get_caller_identity().send().await {
-                Ok(_) => {
-                    valid_keys.push(key);
-                }
-                Err(e) => {
-                    eprintln!("sts error: {:?}", e);
-                    continue;
-                }
-            }
-        }
-        // tokio::time::sleep(core::time::Duration::from_secs(2)).await;
-        valid_keys
-    });
-    let res = runtime.block_on(checker).unwrap();
-
-    for valid_key in res {
-        println!("\nFound key! {:?}", valid_key);
-    }
+    extract_and_check_keys(to_continue_processing);
 }
 
-fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
-    // fs::create_dir(&args.downloads_dir).unwrap();
+fn find_interesting_packages(items: Vec<PackageToProcess>) -> Vec<PackageToProcess> {
+    unimplemented!()
+    // items
+    //     .into_par_iter()
+    //     .map(|v| {
+    //         let output = Command::new("rg")
+    //             .args([
+    //                 "--pre",
+    //                 "./extract.sh",
+    //                 "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))",
+    //                 "--threads",
+    //                 "1",
+    //                 "-m",
+    //                 "1",
+    //                 "--json",
+    //                 v.local_file.to_str().unwrap(),
+    //             ])
+    //             .output()
+    //             .expect("Failed to run rg");
+    //         if !output.stderr.is_empty() {
+    //             eprintln!("Error! {}", String::from_utf8(output.stderr).unwrap());
+    //         } else {
+    //             let matches: Vec<RgOutput> = output
+    //                 .stdout
+    //                 .lines()
+    //                 .flatten()
+    //                 .flat_map(|line| serde_json::from_str(&line))
+    //                 .collect();
+    //             if !matches.is_empty() {
+    //                 println!("Found {} matches for {:?}", matches.len(), v);
+    //                 return Some(v);
+    //             }
+    //         }
+    //         None
+    //     })
+    //     .flatten()
+    //     .collect()
+}
 
-    // let ts: DateTime<Utc> = Utc::now() - Duration::hours(1);
+fn extract_and_check_keys(items: Vec<PackageToProcess>) {
+    unimplemented!()
+    // let aws_keys: Vec<_> = items.into_par_iter().map(|p| {
+    //     // https://inspector.pypi.io/project/hadata/2.5.111/packages/0e/ec/baf1a440e204e00ddb9fdc9a45cfb7bd0100ac22ae51670e9e4854a1adf2/hadata-2.5.111-py2.py3-none-any.whl/
+    //     // https://inspector.pypi.io/project/hadata/2.5.111/packages/0e/ec/baf1a440e204e00ddb9fdc9a45cfb7bd0100ac22ae51670e9e4854a1adf2/hadata-2.5.111-py2.py3-none-any.whl/hautils/hamail.py#line.54
+    //     // let output_dir = TempDir::new().unwrap();
+    //     let temp_path = p.local_file.path();
+    //     // let download_path = temp_path
+    //     let _output = Command::new("unar")
+    //         .args([
+    //             "-k",
+    //             "skip",
+    //             "-q",
+    //             "-o",
+    //             output_path.to_str().unwrap(),
+    //             p.local_file.path().to_str().unwrap(),
+    //         ])
+    //         .output()
+    //         .expect("Failed to run unar");
+    //
+    //     let rg_output = Command::new("rg")
+    //         .args([
+    //             "--multiline",
+    //             "-o",
+    //             "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))",
+    //             "--json",
+    //             output_path.to_str().unwrap()
+    //         ])
+    //         .output()
+    //         .expect("Failed to run rg");
+    //     let matches: Vec<RgOutput> = rg_output
+    //         .stdout
+    //         .lines()
+    //         .flatten()
+    //         .flat_map(|line| serde_json::from_str(&line))
+    //         .collect();
+    //     let mut found = vec![];
+    //
+    //     // println!("{}", String::from_utf8(rg_output.stdout).unwrap());
+    //
+    //     for m in matches {
+    //         // extract path from extracted path
+    //         match m {
+    //             RgOutput::Match { line_number, lines, path } => {
+    //                 lazy_static! {
+    //                         static ref ACCESS_KEY_REGEX: Regex = Regex::new("(('|\")(?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16})('|\"))").unwrap();
+    //                         static ref SECRET_KEY_REGEX: Regex = Regex::new("(('|\")([a-zA-Z0-9+/]{40})('|\"))").unwrap();
+    //                 }
+    //
+    //                 let extracted_key_id = ACCESS_KEY_REGEX.find(&lines.text);
+    //                 let extracted_secret_key = SECRET_KEY_REGEX.find(&lines.text);
+    //
+    //                 let (key_match, secret_match) = match (extracted_key_id, extracted_secret_key) {
+    //                     (Some(km), Some(sm)) => {
+    //                         let key_str = &lines.text[km.range()];
+    //                         let secret_str = &lines.text[sm.range()];
+    //                         (key_str[1..(key_str.len() - 1)].to_string(), secret_str[1..(secret_str.len() - 1)].to_string())
+    //                     }
+    //                     _ => {
+    //                         eprintln!("Cannot find sub matches for {:?}", p);
+    //                         continue;
+    //                     }
+    //                 };
+    //
+    //                 println!("Lines: {:?}", lines);
+    //                 let temp_component_count = output_path.components().count();
+    //                 let path_components: Vec<_> = path.text.components().collect();
+    //                 let final_path: &PathBuf = &path_components[temp_component_count..].iter().collect();
+    //                 // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic-s3-test-1.0/mathlogic/credentials.py
+    //                 // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic/credentials.py
+    //                 let public_path = format!("https://inspector.pypi.io/project/{}/{}/{}/{}#line.{}", p.name, p.version, p.pypi_file.url.path(), final_path.to_str().unwrap(), line_number);
+    //                 // println!("path: {}", inspector_path);
+    //                 found.push(FoundKey {
+    //                     public_path,
+    //                     pypi_file: p.pypi_file.clone(),
+    //                     name: p.name.clone(),
+    //                     version: p.version.clone(),
+    //                     access_key: key_match,
+    //                     secret_key: secret_match,
+    //                 })
+    //             }
+    //         }
+    //     }
+    //     found
+    // }).flatten().collect();
+    //
+    // // Aws SDK is all async. Bit annoying.
+    // let runtime = tokio::runtime::Runtime::new().unwrap();
+    // let checker = runtime.spawn(async {
+    //     let mut valid_keys = vec![];
+    //     println!("Trying keys...");
+    //     for key in aws_keys {
+    //         println!("Key {:?}", key);
+    //         std::env::set_var("AWS_ACCESS_KEY_ID", &key.access_key);
+    //         std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
+    //         std::env::set_var("AWS_DEFAULT_REGION", "us-east-1");
+    //         let config = aws_config::load_from_env().await;
+    //         let client = aws_sdk_sts::Client::new(&config);
+    //         match client.get_caller_identity().send().await {
+    //             Ok(_) => {
+    //                 valid_keys.push(key);
+    //             }
+    //             Err(e) => {
+    //                 eprintln!("sts error: {:?}", e);
+    //                 continue;
+    //             }
+    //         }
+    //     }
+    //     // tokio::time::sleep(core::time::Duration::from_secs(2)).await;
+    //     valid_keys
+    // });
+    // let res = runtime.block_on(checker).unwrap();
+    //
+    // for valid_key in res {
+    //     println!("\nFound key! {:?}", valid_key);
+    // }
+}
+
+fn find_new_pypi_releases(since: DateTime<Utc>) -> HashMap<(String, String), Vec<String>> {
     let changelog_request = Request::new("changelog").arg(since.timestamp());
     let res = changelog_request
         .call_url("https://pypi.org/pypi")
@@ -346,7 +328,7 @@ fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
         panic!("Unknown response!")
     };
 
-    let grouped_uploads: HashMap<_, Vec<_>> = values
+    values
         .iter()
         .filter_map(|value| match value {
             XmlValue::Array(v) => Some(v),
@@ -357,25 +339,21 @@ fn download(downloads_dir: PathBuf, since: DateTime<Utc>) -> DateTime<Utc> {
                 if action.starts_with("add ") && !action.ends_with(".exe") =>
             {
                 let file_name = action.split(' ').last().unwrap();
-                Some((name, version, file_name))
+                Some((name.clone(), version.clone(), file_name.to_string()))
             }
             _ => None,
         })
         .sorted()
-        .group_by(|(name, version, _)| (*name, *version))
+        .group_by(|(name, version, _)| (name.clone(), version.clone()))
         .into_iter()
         .map(|(key, value)| (key, value.map(|(_, _, f)| f).collect()))
-        .collect();
-
-    eprintln!("Changed releases: {:?}", grouped_uploads.len());
-    download_releases(grouped_uploads, downloads_dir)
+        .collect()
 }
 
-fn download_releases(
-    releases: HashMap<(&String, &String), Vec<&str>>,
-    downloads_dir: PathBuf,
-) -> DateTime<Utc> {
-    let mut download_times: Vec<_> = releases
+fn fetch_release_info(
+    grouped_uploads: HashMap<(String, String), Vec<String>>,
+) -> Vec<(String, String, ProjectFile)> {
+    grouped_uploads
         .into_par_iter()
         .filter_map(|((name, version), files)| {
             let url = format!("https://pypi.org/pypi/{name}/{version}/json");
@@ -406,32 +384,33 @@ fn download_releases(
             let matches: Vec<_> = package_info
                 .urls
                 .into_iter()
-                .filter(|v| files.contains(&v.filename.as_str()))
-                .map(|v| (name, version, v))
+                .filter(|v| files.contains(&v.filename))
+                .map(|v| (name.clone(), version.clone(), v))
                 .collect();
             Some(matches)
-            // Some((original_json_response, matches))
         })
         .flatten()
+        .collect()
+}
+
+fn download_releases(releases: Vec<(String, String, ProjectFile)>) -> Vec<PackageToProcess> {
+    releases
+        .into_par_iter()
         .map(|(name, version, file)| {
-            let output_location = downloads_dir.join(&file.filename);
-            let mut out = File::create(&output_location).unwrap();
+            let temp_dir = TempDir::new().unwrap();
+            let download_location = temp_dir.path().join("download").join(&file.filename);
+            let extract_location = temp_dir.path().join("extracted");
+            let mut out = File::create(&download_location).unwrap();
             let mut resp = reqwest::blocking::get(file.url.clone()).unwrap();
             io::copy(&mut resp, &mut out).expect("Error copying");
-            println!(
-                "{}",
-                serde_json::to_string(&PackageToProcess {
-                    pypi_file: file.clone(),
-                    local_file: output_location,
-                    name: name.clone(),
-                    version: version.clone(),
-                })
-                .unwrap()
-            );
-            eprintln!("Downloaded {:?}", file);
-            file.upload_time
+            PackageToProcess {
+                pypi_file: file.clone(),
+                temp_dir: TempDir::new().unwrap(),
+                download_location,
+                extract_location,
+                name: name.clone(),
+                version: version.clone(),
+            }
         })
-        .collect();
-    download_times.sort();
-    download_times[download_times.len() - 1]
+        .collect()
 }
