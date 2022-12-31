@@ -39,5 +39,5 @@ jobs:
           # From https://github.community/t/github-actions-bot-email-address/17204/5
           author_email: "41898282+github-actions[bot]@users.noreply.github.com"
           author_name: "commit-bot"
-          message: "Scheduled changelog data update from Github Actions"
+          message: "Update state"
           push: true
