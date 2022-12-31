@@ -119,7 +119,7 @@ fn main() {
     match args.action {
         Action::ProcessRelative { hours } => {
             let ts: DateTime<Utc> = Utc::now() - Duration::hours(hours);
-            let (_, new_files) = find_new_pypi_releases(ts);
+            let (_, new_files) = find_new_pypi_releases(ts, None);
             let release_info = fetch_release_info(new_files);
             let to_process = download_releases(release_info);
             process(to_process);
@@ -139,16 +139,11 @@ fn main() {
         Action::Process { limit } => {
             let state = read_state();
             println!("Processing from {}", state.last_timestamp);
-            let (max_ts, new_files) = find_new_pypi_releases(state.last_timestamp);
+            let (max_ts, new_files) = find_new_pypi_releases(state.last_timestamp, limit);
             println!("Found {} new files, max ts {}", new_files.len(), max_ts);
             let release_info = fetch_release_info(new_files);
-            let limited_info = if let Some(limit) = limit {
-                release_info.into_iter().take(limit).collect()
-            } else {
-                release_info
-            };
             println!("Downloading {} releases", release_info.len());
-            let to_process = download_releases(limited_info);
+            let to_process = download_releases(release_info);
             process(to_process);
             update_state(max_ts);
         }
@@ -379,6 +374,7 @@ fn extract_and_check_keys(items: Vec<PackageToProcess>) -> Vec<LiveKey> {
 
 fn find_new_pypi_releases(
     since: DateTime<Utc>,
+    limit: Option<usize>
 ) -> (DateTime<Utc>, HashMap<(String, String), Vec<String>>) {
     let changelog_request = Request::new("changelog").arg(since.timestamp());
     let res = changelog_request
@@ -406,6 +402,12 @@ fn find_new_pypi_releases(
                 }
             _ => None,
         }).collect();
+
+    let items = if let Some(limit) = limit {
+        items.into_iter().take(limit).collect()
+    } else {
+        items
+    };
 
     let last_timestamp = *items.iter().map(|(_, _, _, ts)| ts).max().unwrap();
     let items_without_timestamp = items.into_iter().map(|(n, v, f, _)| (n, v, f));
