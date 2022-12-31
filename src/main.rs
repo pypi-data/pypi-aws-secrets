@@ -202,10 +202,7 @@ fn process(state: PathBuf) {
                     .flat_map(|line| serde_json::from_str(&line))
                     .collect();
                 if !matches.is_empty() {
-                    println!("Found matches for {:?}", v);
-                    for m in matches {
-                        println!(" - {:?}", m);
-                    }
+                    println!("Found {} matches for {:?}", matches.len(),  v);
                     return Some(v);
                 }
             }
