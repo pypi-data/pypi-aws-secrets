@@ -21,6 +21,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - run: cargo build
+      - run: mkdir downloads/
       - run: cargo run -- download-increment downloads/ > to-process.json
       - run: cargo run -- process to-process.json
 #      - uses: EndBug/add-and-commit@v9
