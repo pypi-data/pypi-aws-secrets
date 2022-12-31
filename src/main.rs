@@ -316,6 +316,7 @@ fn process(state: PathBuf) {
         let mut  valid_keys = vec![];
         println!("Trying keys...");
         for key in aws_keys {
+            println!("Key {:?}", key);
             std::env::set_var("AWS_ACCESS_KEY_ID", &key.access_key);
             std::env::set_var("AWS_SECRET_ACCESS_KEY", &key.secret_key);
             let config = aws_config::load_from_env().await;
