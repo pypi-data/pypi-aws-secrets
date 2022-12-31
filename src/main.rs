@@ -96,7 +96,10 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Action {
-    Process {},
+    Process {
+        #[arg()]
+        limit: Option<usize>,
+    },
     ProcessRelative {
         #[arg()]
         hours: i64,
@@ -133,12 +136,18 @@ fn main() {
             let matches = process(to_process);
             create_findings(matches);
         }
-        Action::Process {} => {
+        Action::Process { limit } => {
             let state = read_state();
             println!("Processing from {}", state.last_timestamp);
             let (max_ts, new_files) = find_new_pypi_releases(state.last_timestamp);
+            println!("Found {} new files, max ts {}", new_files.len(), max_ts);
             let release_info = fetch_release_info(new_files);
-            let to_process = download_releases(release_info);
+            let limited_info = if let Some(limit) = limit {
+                release_info.into_iter().take(limit).collect()
+            } else {
+                release_info
+            };
+            let to_process = download_releases(limited_info);
             process(to_process);
             update_state(max_ts);
         }
