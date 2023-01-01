@@ -1,12 +1,12 @@
-use crate::sources::{PackageToProcess, Source};
+use crate::sources::{PackageToProcess, Source, SourceType};
 use crate::state::SourceData;
 use anyhow::{anyhow, bail, Result};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
 use rayon::prelude::*;
-use xmlrpc::{Request, Value as XmlValue, Value};
 use serde::Deserialize;
+use std::collections::HashSet;
 use url::Url;
+use xmlrpc::{Request, Value as XmlValue, Value};
 
 pub struct PyPiSource {
     changelog_serial: u64,
@@ -22,7 +22,10 @@ impl Source for PyPiSource {
         Ok(Self { changelog_serial })
     }
 
-    fn get_new_packages_to_process(&self, limit: usize) -> Result<(SourceData, Vec<PackageToProcess>)> {
+    fn get_new_packages_to_process(
+        &self,
+        limit: usize,
+    ) -> Result<(SourceData, Vec<PackageToProcess>)> {
         let changelog_request =
             Request::new("changelog_since_serial").arg(self.changelog_serial as i32);
         let res = changelog_request.call_url("https://pypi.org/pypi")?;
@@ -32,7 +35,10 @@ impl Source for PyPiSource {
                     XmlValue::Array(v) => Some(v),
                     _ => None,
                 });
-                only_xml_vecs.filter_map(parse_changelog_item).take(limit).collect()
+                only_xml_vecs
+                    .filter_map(parse_changelog_item)
+                    .take(limit)
+                    .collect()
             }
             _ => {
                 bail!("Unknown changelog response: {:?}", res);
@@ -54,9 +60,12 @@ impl Source for PyPiSource {
             .map(|v| ((v.package_name.clone(), v.version.clone()), v))
             .into_group_map();
 
-        let packages_to_process: Result<Vec<_>> = changelogs_by_packages.into_par_iter().map(|((name, version), changelogs)| {
-            fetch_download_url_for_package(name, version, changelogs)
-        }).collect();
+        let packages_to_process: Result<Vec<_>> = changelogs_by_packages
+            .into_par_iter()
+            .map(|((name, version), changelogs)| {
+                fetch_download_url_for_package(name, version, changelogs)
+            })
+            .collect();
         let flattened_packages = packages_to_process?.into_iter().flatten().collect();
         Ok((new_state, flattened_packages))
     }
@@ -72,45 +81,53 @@ struct ChangelogItem {
 fn parse_changelog_item(value: &Vec<XmlValue>) -> Option<ChangelogItem> {
     match &value[..] {
         [XmlValue::String(name), XmlValue::String(version), _, XmlValue::String(action), XmlValue::Int(serial)]
-        if action.starts_with("add ") && !action.ends_with(".exe") =>
-            {
-                let file_name = action.split(' ').last().unwrap();
-                Some(ChangelogItem {
-                    package_name: name.clone(),
-                    version: version.clone(),
-                    file_name: file_name.to_string(),
-                    serial: (*serial) as u64,
-                })
-            }
+            if action.starts_with("add ") && !action.ends_with(".exe") =>
+        {
+            let file_name = action.split(' ').last().unwrap();
+            Some(ChangelogItem {
+                package_name: name.clone(),
+                version: version.clone(),
+                file_name: file_name.to_string(),
+                serial: (*serial) as u64,
+            })
+        }
         _ => None,
     }
 }
 
 #[derive(Deserialize)]
 pub struct PyPiResponse {
-    urls: Vec<PackageUrl>
+    urls: Vec<PackageUrl>,
 }
 
 #[derive(Deserialize)]
 pub struct PackageUrl {
     url: String,
-    filename: String
+    filename: String,
 }
 
-fn fetch_download_url_for_package(name: String, version: String, changelogs: Vec<ChangelogItem>) -> Result<Vec<PackageToProcess>> {
+fn fetch_download_url_for_package(
+    name: String,
+    version: String,
+    changelogs: Vec<ChangelogItem>,
+) -> Result<Vec<PackageToProcess>> {
     let url = format!("https://pypi.org/pypi/{name}/{version}/json");
-    let response = reqwest::blocking::get(&url)?;
+    let response = reqwest::blocking::get(url)?;
     if response.status() == 404 {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     let file_names: HashSet<_> = changelogs.into_iter().map(|c| c.file_name).collect();
 
     let response: PyPiResponse = response.json()?;
 
-    let matching_urls = response.urls.into_iter().filter(|v| file_names.contains(&v.filename)).filter_map(|v| {
-        Url::parse(&*v.url).ok()
-    });
+    let matching_urls = response
+        .urls
+        .into_iter()
+        .filter(|v| file_names.contains(&v.filename))
+        .filter_map(|v| Url::parse(&v.url).ok());
 
-    Ok(matching_urls.map(|url| PackageToProcess::new(name.clone(), version.clone(), url)).collect())
+    Ok(matching_urls
+        .map(|url| PackageToProcess::new(name.clone(), version.clone(), url, SourceType::PyPi))
+        .collect())
 }

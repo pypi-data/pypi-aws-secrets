@@ -17,7 +17,7 @@ impl State {
     pub fn load() -> Result<Self> {
         let state_file = match File::open("state.json") {
             Ok(f) => f,
-            Err(_) => return Ok(State::default())
+            Err(_) => return Ok(State::default()),
         };
         let writer = BufReader::new(state_file);
         Ok(serde_json::from_reader(writer)?)
@@ -36,7 +36,7 @@ impl State {
     pub fn data_for_source(&self, source: SourceType) -> SourceData {
         match self.sources.get(&source) {
             None => SourceData::default(),
-            Some(v) => v.clone()
+            Some(v) => v.clone(),
         }
     }
 }
