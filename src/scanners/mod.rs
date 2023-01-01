@@ -92,15 +92,14 @@ impl Scanner {
         // The output may contain multiple matches for our second-stage regex.
         // Here we create a cartesian product product of all matches.
         for rg_match in &matches {
-            let matches: Vec<_> = ACCESS_KEY_REGEX
+            let matches = ACCESS_KEY_REGEX
                 .find_iter(&rg_match.lines)
                 .cartesian_product(
                     SECRET_KEY_REGEX
                         .find_iter(&rg_match.lines)
                         .collect::<Vec<_>>(),
                 )
-                .map(|(key, secret)| (trim_quotes(key.as_str()), trim_quotes(secret.as_str())))
-                .collect();
+                .map(|(key, secret)| (trim_quotes(key.as_str()), trim_quotes(secret.as_str())));
 
             matched_keys.extend(
                 matches
