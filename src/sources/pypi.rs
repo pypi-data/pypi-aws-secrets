@@ -2,24 +2,26 @@ use crate::sources::{PackageToProcess, Source, SourceType};
 use crate::state::SourceData;
 use anyhow::{anyhow, bail, Result};
 use itertools::Itertools;
+use rand::prelude::*;
 use rayon::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use url::Url;
 use xmlrpc::{Request, Value as XmlValue, Value};
 
+#[derive(Serialize, Deserialize)]
 pub struct PyPiSource {
     changelog_serial: u64,
 }
 
 impl Source for PyPiSource {
     fn new(mut data: SourceData) -> Result<Self> {
-        let changelog_serial = data
-            .entry("changelog_serial")
-            .or_insert(0.into())
-            .as_u64()
-            .ok_or_else(|| anyhow!("changelog_serial is not an integer"))?;
-        Ok(Self { changelog_serial })
+        match data {
+            SourceData::Null => Ok(Self {
+                changelog_serial: 0,
+            }),
+            _ => Ok(serde_json::from_value(data)?),
+        }
     }
 
     fn get_new_packages_to_process(
@@ -49,8 +51,9 @@ impl Source for PyPiSource {
             .map(|v| v.serial)
             .max_by_key(|v| *v)
             .ok_or_else(|| anyhow!("No changelog items found"))?;
-        let mut new_state = SourceData::new();
-        new_state.insert("changelog_serial".to_string(), highest_serial.into());
+        let new_state = serde_json::to_value(PyPiSource {
+            changelog_serial: highest_serial,
+        })?;
 
         // Now we have a vec of individual releases. We need to fetch the download URLs, which requires
         // us to make 1 request per _package version_ to fetch N _releases_.
@@ -66,7 +69,8 @@ impl Source for PyPiSource {
                 fetch_download_url_for_package(name, version, changelogs)
             })
             .collect();
-        let flattened_packages = packages_to_process?.into_iter().flatten().collect();
+        let mut flattened_packages: Vec<_> = packages_to_process?.into_iter().flatten().collect();
+        flattened_packages.shuffle(&mut thread_rng());
         Ok((new_state, flattened_packages))
     }
 }

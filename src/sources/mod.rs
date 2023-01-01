@@ -1,16 +1,31 @@
+mod hexpm;
 mod pypi;
+mod rubygems;
 
 use crate::state::SourceData;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+pub use hexpm::HexPmSource;
 pub use pypi::PyPiSource;
+pub use rubygems::RubyGemsSource;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub enum SourceType {
     PyPi,
     RubyGems,
+    HexPm,
+}
+
+impl SourceType {
+    pub fn create_source(&self, data: SourceData) -> Result<Box<dyn Source>> {
+        Ok(match self {
+            SourceType::PyPi => Box::new(PyPiSource::new(data)?),
+            SourceType::RubyGems => Box::new(RubyGemsSource::new(data)?),
+            SourceType::HexPm => Box::new(HexPmSource::new(data)?),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +55,7 @@ impl PackageToProcess {
     }
 }
 
-pub trait Source {
+pub trait Source: Send {
     fn new(data: SourceData) -> Result<Self>
     where
         Self: Sized;

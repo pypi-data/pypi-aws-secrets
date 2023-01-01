@@ -31,7 +31,7 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub struct DownloadedPackage {
-    package: PackageToProcess,
+    pub package: PackageToProcess,
     temp_dir: TempDir,
     extract_dir: PathBuf,
     download_path: PathBuf,
@@ -39,8 +39,8 @@ pub struct DownloadedPackage {
 
 #[derive(Debug)]
 pub struct PossiblyMatchedPackage {
-    downloaded_package: DownloadedPackage,
-    matches: Vec<RipGrepMatch>,
+    pub downloaded_package: DownloadedPackage,
+    pub matches: Vec<RipGrepMatch>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl Scanner {
     ) -> Result<Option<PossiblyMatchedPackage>> {
         let matches = run_ripgrep(&[
             "--pre",
-            "./extract.sh",
+            "./scripts/extract-stdout.sh",
             QUICK_CHECK_REGEX,
             "--threads",
             "1",
@@ -127,7 +127,8 @@ impl Scanner {
         let download_path = download_dir.join(package.file_name());
 
         let mut out = File::create(&download_path)?;
-        let mut resp = reqwest::blocking::get(package.download_url.to_string())?;
+        let mut resp =
+            reqwest::blocking::get(package.download_url.to_string())?.error_for_status()?;
         io::copy(&mut resp, &mut out)?;
         Ok(DownloadedPackage {
             package,
@@ -139,13 +140,8 @@ impl Scanner {
 }
 
 fn extract_package(package: &DownloadedPackage) -> Result<()> {
-    Command::new("unar")
+    Command::new("./scripts/extract-fs.sh")
         .args([
-            "-D",
-            "-k",
-            "skip",
-            "-q",
-            "-o",
             package.extract_dir.to_str().unwrap(),
             package.download_path.to_str().unwrap(),
         ])

@@ -1,5 +1,4 @@
-use anyhow::{Result};
-use clap::builder::TypedValueParser;
+use anyhow::Result;
 use serde::Deserialize;
 use std::io::BufRead;
 use std::path::PathBuf;

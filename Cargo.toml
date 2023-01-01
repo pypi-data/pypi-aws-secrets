@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.0.32", features = ["derive"] }
-indicatif = { version = "0.17.2", features = ["rayon"] }
 itertools = "0.10.5"
 rayon = "1.6.1"
 reqwest = { version = "0.11.13", features = ["serde_json", "json"] }
@@ -24,3 +23,4 @@ regex = "1.7.0"
 lazy_static = "1.4.0"
 tinytemplate = "1.2.1"
 anyhow = "1.0.68"
+rand = "0.8.5"
