@@ -1,3 +1,20 @@
+/// Please don't judge this code 😅. I'm not a Rust expert by any means, but even I'm a bit offended
+/// by things I've had to do. This started off as a big fish shell script that I gradually reworked
+/// into this, and it's _not_ pretty. It's definitely a v 0.1 proof-of-concept type deal.
+///
+/// So, what does this do?
+///
+/// Basically we use the PyPi changelog feed to fetch new files uploaded to pypi.
+/// We then download each of them and stream them into ripgrep, looking for AWS access key ID patterns.
+/// If we find a match, we extract the release and do a more thorough search for an access key and a
+/// secret key ID close by.
+///
+/// If we find it, we check if it's valid by calling `get-caller-identity` on it, then we create
+/// a markdown file under `keys/` with some information and a link to the inspector.pypi.io tool
+/// that shows the key being publicly displayed.
+/// We keep track of the "last timestamp we've processed" by committing to a `state.json` file.
+/// Every hour we process the first 2000 files created after that timestamp.
+///
 use chrono::prelude::*;
 use chrono::Duration;
 use indicatif::ParallelProgressIterator;
@@ -143,7 +160,7 @@ fn main() {
             let (max_ts, new_files) = find_new_pypi_releases(state.last_timestamp, limit);
             println!("Found {} new files, max ts {}", new_files.len(), max_ts);
             let release_info = fetch_release_info(new_files);
-            println!("Downloading {} releases", release_info.len());
+            println!("Downloading releases from {} packages", release_info.len());
             let to_process = download_releases(release_info);
             let matches = process(to_process);
             create_findings(matches);
@@ -321,10 +338,7 @@ fn extract_and_check_keys(items: Vec<PackageToProcess>) -> Vec<LiveKey> {
                     println!("Lines: {:?}", lines);
                     let extract_path_str = p.extract_location.to_str().unwrap();
                     let relative_path = path.text.to_str().unwrap().strip_prefix(&format!("{}/", extract_path_str)).unwrap();
-                    // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic-s3-test-1.0/mathlogic/credentials.py
-                    // https://inspector.pypi.io/project/mathlogic-s3-test/1.0/packages/0e/0e/4ff410fa20299ced4b88806191b015de257e0bf77617900147a548324774/mathlogic-s3-test-1.0.tar.gz/mathlogic/credentials.py
                     let public_path = format!("https://inspector.pypi.io/project/{}/{}/{}/{}#line.{}", p.name, p.version, p.pypi_file.url.path().strip_prefix('/').unwrap(), relative_path, line_number);
-                    // println!("path: {}", inspector_path);
                     found.push(FoundKey {
                         public_path,
                         pypi_file: p.pypi_file.clone(),
