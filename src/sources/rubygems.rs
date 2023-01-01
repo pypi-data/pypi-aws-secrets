@@ -21,7 +21,7 @@ pub struct RubyGemsResponse {
 }
 
 impl Source for RubyGemsSource {
-    fn new(mut data: SourceData) -> Result<Self> {
+    fn new(data: SourceData) -> Result<Self> {
         match data {
             SourceData::Null => Ok(Self {
                 last_date: "2019-01-18T21:24:29Z".parse().unwrap(),

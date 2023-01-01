@@ -1,7 +1,7 @@
 use crate::sources::SourceType;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Value};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -35,7 +35,7 @@ impl State {
     }
 
     pub fn data_for_source(&self, source: &SourceType) -> SourceData {
-        match self.sources.get(&source) {
+        match self.sources.get(source) {
             None => SourceData::Null,
             Some(v) => v.clone(),
         }

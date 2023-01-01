@@ -15,7 +15,7 @@ pub struct PyPiSource {
 }
 
 impl Source for PyPiSource {
-    fn new(mut data: SourceData) -> Result<Self> {
+    fn new(data: SourceData) -> Result<Self> {
         match data {
             SourceData::Null => Ok(Self {
                 changelog_serial: 0,

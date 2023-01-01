@@ -6,11 +6,11 @@ mod state;
 
 use crate::aws::check_aws_keys;
 use crate::scanners::Scanner;
-use crate::sources::{HexPmSource, PyPiSource, RubyGemsSource, Source, SourceType};
+use crate::sources::{Source, SourceType};
 use crate::state::State;
 use anyhow::Result;
 use clap::Parser;
-use itertools::Itertools;
+
 use rayon::prelude::*;
 use std::path::PathBuf;
 

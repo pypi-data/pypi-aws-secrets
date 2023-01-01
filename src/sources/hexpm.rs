@@ -3,9 +3,9 @@ use crate::state::SourceData;
 use anyhow::anyhow;
 use anyhow::Result;
 use chrono::prelude::*;
-use chrono::Duration;
+
 use serde::{Deserialize, Serialize};
-use url::Url;
+
 
 #[derive(Serialize, Deserialize)]
 pub struct HexPmSource {
@@ -25,7 +25,7 @@ pub struct HexPmRelease {
 }
 
 impl Source for HexPmSource {
-    fn new(mut data: SourceData) -> Result<Self> {
+    fn new(data: SourceData) -> Result<Self> {
         match data {
             SourceData::Null => Ok(Self {
                 last_updated_at: "2018-01-01T00:00:00Z".parse().unwrap(),
@@ -38,7 +38,7 @@ impl Source for HexPmSource {
         &self,
         limit: usize,
     ) -> anyhow::Result<(SourceData, Vec<PackageToProcess>)> {
-        let base_url = format!("https://hex.pm/api/packages?sort=updated_at&search=");
+        let base_url = "https://hex.pm/api/packages?sort=updated_at&search=".to_string();
         let mut results = vec![];
         let client = reqwest::blocking::Client::new();
 
