@@ -3,7 +3,7 @@ mod scanners;
 mod sources;
 mod state;
 
-use crate::scanners::{PossiblyMatchedPackage, Scanner};
+use crate::scanners::{Scanner};
 use crate::sources::{PyPiSource, Source, SourceType};
 use crate::state::State;
 use anyhow::Result;
@@ -26,12 +26,12 @@ fn main() -> Result<()> {
 
     let scanner = Scanner {};
 
-    let mut all_matches: Result<Vec<_>> = packages.into_par_iter().flat_map(|package| -> Result<_> {
+    let all_matches: Result<Vec<_>> = packages.into_par_iter().flat_map(|package| -> Result<_> {
         println!("Matches for {}", package.file_name());
         let download = scanner.download_package(package)?;
-        Ok(scanner.quick_check(download)?)
+        scanner.quick_check(download)
     }).flatten().map(|matches| {
-        Ok(scanner.full_check(matches)?)
+        scanner.full_check(matches)
     }).collect();
 
     let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect())?;

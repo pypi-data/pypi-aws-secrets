@@ -13,14 +13,14 @@ use std::{fs, io};
 use temp_dir::TempDir;
 
 // Search for anything that looks like an AWS access key ID
-const QUICK_CHECK_REGEX: &'static str = "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))";
+const QUICK_CHECK_REGEX: &str = "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))";
 
 // This is a bit ridiculous, but it searches for the AWS access key pattern above combined with
 // the secret key regex ([a-zA-Z0-9+/]{40}). This regex is too general, so we need to pair it with
 // an access key match that is between 0 and 4 lines of the secret key match.
 // It only looks for keys surrounded by quotes, else the false positive rate is too large.
 // It also supports secret keys being defined before the access key.
-const FULL_CHECK_REGEX: &'static str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))";
+const FULL_CHECK_REGEX: &str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))";
 
 // Two regular expressions to extract access keys from the matches.
 lazy_static! {
@@ -128,7 +128,7 @@ impl Scanner {
         let download_path = download_dir.join(package.file_name());
 
         let mut out = File::create(&download_path)?;
-        let mut resp = reqwest::blocking::get(&package.download_url.to_string())?;
+        let mut resp = reqwest::blocking::get(package.download_url.to_string())?;
         io::copy(&mut resp, &mut out)?;
         Ok(DownloadedPackage {
             package,

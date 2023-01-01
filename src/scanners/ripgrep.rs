@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result};
 use clap::builder::TypedValueParser;
 use serde::Deserialize;
 use std::io::BufRead;
