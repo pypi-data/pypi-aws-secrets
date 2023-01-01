@@ -2,7 +2,7 @@ name: Update Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/20 * * * *'
 
 concurrency: ci-${{ github.ref }}
 
