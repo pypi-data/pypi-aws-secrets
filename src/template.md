@@ -3,7 +3,7 @@
 * Package Name: {first_key.name}
 * Package Version: {first_key.version}
 * Upload date: {project_file.upload_time_iso_8601}
-* PyPi release URL: [{project_file.url}]({project_file.filename})
+* PyPi release URL: [{project_file.filename}]({project_file.url})
 
 ## Key Details
 {{ for key in keys }}
