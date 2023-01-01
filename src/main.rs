@@ -122,7 +122,8 @@ fn main() {
             let (_, new_files) = find_new_pypi_releases(ts, None);
             let release_info = fetch_release_info(new_files);
             let to_process = download_releases(release_info);
-            process(to_process);
+            let matches = process(to_process);
+            create_findings(matches);
         }
         Action::ProcessSpecific {
             project,
@@ -144,7 +145,8 @@ fn main() {
             let release_info = fetch_release_info(new_files);
             println!("Downloading {} releases", release_info.len());
             let to_process = download_releases(release_info);
-            process(to_process);
+            let matches = process(to_process);
+            create_findings(matches);
             update_state(max_ts);
         }
     };
