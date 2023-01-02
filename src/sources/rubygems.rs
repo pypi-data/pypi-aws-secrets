@@ -57,7 +57,7 @@ impl Source for RubyGemsSource {
                 .to_rfc3339_opts(SecondsFormat::Secs, true,),
             end_date.to_rfc3339_opts(SecondsFormat::Secs, true,)
         );
-        for page in 0..10 {
+        for page in 0..50 {
             if results.len() >= limit {
                 break;
             }
