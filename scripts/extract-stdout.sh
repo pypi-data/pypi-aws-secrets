@@ -9,13 +9,11 @@ case "$1" in
     ;;
   *.gem)
     # Gemfiles are tar files with several individual gzip files inside.
-    file "$1" 1>&2
-    tar -ztvf "$1" 1>&2
-    tar -xOzf "$1" "data.tar.gz" | gzip -d
+    tar -xOf "$1" "data.tar.gz" | gzip -d
     ;;
   *.tar)
     # Tar files (from hexpm) contain a single file
-    tar -xOzf "$1" "contents.tar.gz" | gzip -d
+    tar -xOf "$1" "contents.tar.gz" | gzip -d
     ;;
   *)
     exec unzip -p "$1"
