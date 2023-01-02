@@ -1,0 +1,23 @@
+{
+  "sources": {
+    "HexPm": {
+      "last_package_timestamp": "2018-01-01T00:00:00Z",
+      "stats": {
+        "packages_searched": 0
+      }
+    },
+    "PyPi": {
+      "changelog_serial": 0,
+      "last_package_timestamp": null,
+      "stats": {
+        "packages_searched": 0
+      }
+    },
+    "RubyGems": {
+      "last_package_timestamp": "2019-01-18T21:24:29Z",
+      "stats": {
+        "packages_searched": 0
+      }
+    }
+  }
+}

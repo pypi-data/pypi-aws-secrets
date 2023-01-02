@@ -101,7 +101,6 @@ impl Source for PyPiSource {
         let packages_to_process: Result<Vec<_>> = changelogs_by_packages
             .into_par_iter()
             .map(|((name, version), changelogs)| {
-                println!("{} - {}", name, changelogs[0].serial);
                 fetch_download_url_for_package(name, version, changelogs)
             })
             .collect();

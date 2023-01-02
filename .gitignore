@@ -2,3 +2,4 @@
 downloads/
 *.json
 !state.json
+!state-from-start.json
