@@ -1,7 +1,6 @@
 use crate::scanners::ScannerMatch;
 use crate::sources::SourceType;
 use anyhow::Result;
-use serde::Serialize;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
