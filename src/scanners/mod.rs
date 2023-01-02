@@ -1,6 +1,5 @@
 mod ripgrep;
 
-
 pub use crate::scanners::ripgrep::{run_ripgrep, RipGrepMatch};
 use crate::sources::PackageToProcess;
 use anyhow::Result;

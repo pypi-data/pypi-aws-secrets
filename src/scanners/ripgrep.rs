@@ -1,5 +1,5 @@
 use anyhow::Result;
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::process::Command;

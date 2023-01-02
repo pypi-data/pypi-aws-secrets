@@ -1,5 +1,5 @@
 use crate::aws::LiveKey;
-use crate::scanners::{ScannerMatch};
+use crate::scanners::ScannerMatch;
 use crate::sources::{PackageToProcess, SourceType};
 use anyhow::Result;
 use itertools::Itertools;

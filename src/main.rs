@@ -103,15 +103,22 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
         .flat_map(|package| -> Result<_> {
             let download = scanner.download_package(package)?;
             let name = download.package.name.clone();
+            let version = download.package.version.clone();
+            let source = download.package.source.clone();
             let result = scanner.quick_check(download);
-            println!("Finished quick check on {}", name);
+            println!(
+                "Finished quick check on {:?} / {} @ {}",
+                source, name, version
+            );
             result
         })
         .flatten()
         .map(|matched| {
             println!(
-                "running full check on {} - {}",
-                matched.downloaded_package.package.name, matched.downloaded_package.package.version
+                "running full check on {:?} / {} @ {}",
+                matched.downloaded_package.package.source,
+                matched.downloaded_package.package.name,
+                matched.downloaded_package.package.version
             );
             scanner.full_check(matched)
         })
