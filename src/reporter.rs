@@ -1,11 +1,11 @@
 use crate::aws::LiveKey;
-use crate::scanners::{RipGrepMatch, ScannerMatch};
+use crate::scanners::{ScannerMatch};
 use crate::sources::{PackageToProcess, SourceType};
 use anyhow::Result;
 use itertools::Itertools;
 use serde::Serialize;
 use std::fs;
-use std::path::PathBuf;
+
 use tinytemplate::TinyTemplate;
 
 #[derive(Serialize)]

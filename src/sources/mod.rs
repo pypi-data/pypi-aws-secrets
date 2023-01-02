@@ -7,7 +7,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::path::PathBuf;
-use std::str::FromStr;
+
 use url::Url;
 
 pub use hexpm::HexPmSource;

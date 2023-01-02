@@ -59,7 +59,7 @@ fn main() -> Result<()> {
         Action::SetupState { path } => {
             let mut state = State::load(&path)?;
             for source_type in SourceType::value_variants() {
-                let source_data = state.data_for_source(&source_type);
+                let source_data = state.data_for_source(source_type);
                 let source = source_type
                     .create_source(source_data)
                     .expect("Error creating source");

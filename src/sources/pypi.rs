@@ -111,7 +111,7 @@ impl Source for PyPiSource {
     }
 
     fn to_state(&self) -> Result<SourceData> {
-        Ok(serde_json::to_value(&self)?)
+        Ok(serde_json::to_value(self)?)
     }
 
     fn get_stats(&mut self) -> &mut SourceStats {

@@ -6,7 +6,7 @@ use chrono::prelude::*;
 
 use chrono_humanize::HumanTime;
 use serde::{Deserialize, Serialize};
-use std::cmp::Reverse;
+
 use std::fmt::{Display, Formatter};
 
 #[derive(Serialize, Deserialize)]
@@ -114,7 +114,7 @@ impl Source for HexPmSource {
     }
 
     fn to_state(&self) -> Result<SourceData> {
-        Ok(serde_json::to_value(&self)?)
+        Ok(serde_json::to_value(self)?)
     }
 
     fn get_stats(&mut self) -> &mut SourceStats {
