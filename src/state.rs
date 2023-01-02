@@ -1,7 +1,7 @@
 use crate::sources::SourceType;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -27,7 +27,7 @@ impl State {
     pub fn save(self, path: &PathBuf) -> Result<()> {
         let state_file = File::create(path)?;
         let writer = BufWriter::new(state_file);
-        Ok(serde_json::to_writer(writer, &self)?)
+        Ok(serde_json::to_writer_pretty(writer, &self)?)
     }
 
     pub fn update_state(&mut self, source: SourceType, value: SourceData) {

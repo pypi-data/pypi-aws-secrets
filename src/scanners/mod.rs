@@ -1,6 +1,7 @@
 mod ripgrep;
 
-use crate::scanners::ripgrep::{run_ripgrep, RipGrepMatch};
+use crate::aws::LiveKey;
+pub use crate::scanners::ripgrep::{run_ripgrep, RipGrepMatch};
 use crate::sources::PackageToProcess;
 use anyhow::Result;
 use itertools::Itertools;
@@ -20,7 +21,7 @@ const QUICK_CHECK_REGEX: &str = "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))";
 // an access key match that is between 0 and 4 lines of the secret key match.
 // It only looks for keys surrounded by quotes, else the false positive rate is too large.
 // It also supports secret keys being defined before the access key.
-const FULL_CHECK_REGEX: &str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))";
+const FULL_CHECK_REGEX: &str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))+|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))+";
 
 // Two regular expressions to extract access keys from the matches.
 lazy_static! {
@@ -32,9 +33,15 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct DownloadedPackage {
     pub package: PackageToProcess,
-    temp_dir: TempDir,
+    _temp_dir: TempDir,
     extract_dir: PathBuf,
     download_path: PathBuf,
+}
+
+impl PartialEq for DownloadedPackage {
+    fn eq(&self, other: &Self) -> bool {
+        self.package == other.package
+    }
 }
 
 #[derive(Debug)]
@@ -49,6 +56,28 @@ pub struct ScannerMatch {
     pub rg_match: RipGrepMatch,
     pub access_key: String,
     pub secret_key: String,
+}
+
+impl ScannerMatch {
+    pub fn relative_path(&self) -> String {
+        self.rg_match
+            .path
+            .to_str()
+            .unwrap()
+            .strip_prefix(self.downloaded_package.extract_dir.to_str().unwrap())
+            .unwrap()
+            .strip_prefix('/')
+            .unwrap()
+            .to_string()
+    }
+}
+
+impl PartialEq for ScannerMatch {
+    fn eq(&self, other: &Self) -> bool {
+        self.access_key == other.access_key
+            && self.secret_key == other.secret_key
+            && self.downloaded_package == other.downloaded_package
+    }
 }
 
 pub struct Scanner {}
@@ -88,6 +117,7 @@ impl Scanner {
             "--json",
             package.downloaded_package.extract_dir.to_str().unwrap(),
         ])?;
+        println!("matches: {:?}", matches);
         let mut matched_keys = vec![];
         // The output may contain multiple matches for our second-stage regex.
         // Here we create a cartesian product product of all matches.
@@ -132,7 +162,7 @@ impl Scanner {
         io::copy(&mut resp, &mut out)?;
         Ok(DownloadedPackage {
             package,
-            temp_dir,
+            _temp_dir: temp_dir,
             extract_dir,
             download_path,
         })

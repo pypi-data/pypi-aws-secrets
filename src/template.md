@@ -1,17 +1,20 @@
-# AWS keys found published to PyPi
+# AWS keys found published to {package.source}
 
-* Package Name: {first_key.name}
-* Package Version: {first_key.version}
-* Upload date: {project_file.upload_time_iso_8601}
-* PyPi release URL: [{project_file.filename}]({project_file.url})
+* Package Name: {package.name}
+* Package Version: {package.version}
+* Public URL to package: [{package.download_url}]({package.download_url})
 
 ## Key Details
-{{ for key in keys }}
-### `{key.key.access_key}`
+{{ for key in findings }}
+### `{key.access_key}`
 
-Public URL to key material: [{key.key.public_path}]({key.key.public_path})
-
-* AWS Access Key ID: `{key.key.access_key}`
-* AWS Secret Access Key: `{key.key.secret_key}` 
+* AWS Access Key ID: `{key.access_key}`
+* AWS Secret Access Key: `{key.secret_key}` 
 * AWS role name: `{key.role_name}`
+* File in package: `{key.file_path}`
+* Line number: `{key.line_number}`
+{{if key.public_url}}
+* Public URL to key: {key.public_url}
+{{endif}}
+
 {{ endfor }}
