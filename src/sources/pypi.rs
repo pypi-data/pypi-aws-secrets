@@ -118,6 +118,7 @@ impl Source for PyPiSource {
     }
 }
 
+#[derive(Debug)]
 struct ChangelogItem {
     package_name: String,
     version: String,
