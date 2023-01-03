@@ -10,6 +10,8 @@ jobs:
   scan:
     name: Full Trawl
     runs-on: ubuntu-latest
+    env:
+      RAYON_NUM_THREADS: "10"
     steps:
       - uses: actions/checkout@v3
         with:
