@@ -64,7 +64,7 @@ impl Source for PyPiSource {
                     _ => None,
                 });
                 only_xml_vecs
-                    .filter_map(parse_changelog_item)
+                    .filter_map(|v| parse_changelog_item(v))
                     .take(limit)
                     .collect()
             }
@@ -134,8 +134,8 @@ struct ChangelogItem {
     serial: u64,
 }
 
-fn parse_changelog_item(value: &Vec<XmlValue>) -> Option<ChangelogItem> {
-    match &value[..] {
+fn parse_changelog_item(value: &[XmlValue]) -> Option<ChangelogItem> {
+    match value {
         [XmlValue::String(name), XmlValue::String(version), XmlValue::Int(ts), XmlValue::String(action), XmlValue::Int(serial)]
             if action.starts_with("add ") && !action.ends_with(".exe") =>
         {
@@ -176,10 +176,16 @@ fn fetch_download_url_for_package(
     }
 
     let file_names: HashSet<_> = changelogs.into_iter().map(|c| c.file_name).collect();
-
-    let response: PyPiResponse = response
-        .json()
-        .with_context(|| format!("Failed to read JSON for URL {}", url))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .with_context(|| format!("Error fetching text for URL {}", url))?;
+    let response: PyPiResponse = serde_json::from_str(&text).with_context(|| {
+        format!(
+            "Failed to read JSON for URL {}. Status: {}. Text: {}",
+            url, status, text
+        )
+    })?;
 
     let matching_urls = response
         .urls

@@ -141,7 +141,8 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
         })
         .collect();
 
-    let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect()).context("Error checking AWS keys")?;
+    let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect())
+        .context("Error checking AWS keys")?;
     println!("Live keys: {:?}", live_keys);
 
     create_findings(live_keys)?;
