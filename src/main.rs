@@ -115,10 +115,11 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
         .flatten()
         .map(|matched| {
             println!(
-                "running full check on {:?} / {} @ {}",
+                "running full check on {:?} / {} @ {}\n - Previous match:\n{}",
                 matched.downloaded_package.package.source,
                 matched.downloaded_package.package.name,
-                matched.downloaded_package.package.version
+                matched.downloaded_package.package.version,
+                matched.matches.iter().map(|v| { v.lines.chars().take(250).join("") }).join("\n\n")
             );
             scanner.full_check(matched)
         })
