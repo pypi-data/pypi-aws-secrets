@@ -49,7 +49,7 @@ impl Source for RubyGemsSource {
     fn get_new_packages_to_process(&mut self, limit: usize) -> Result<Vec<PackageToProcess>> {
         // https://rubygems.org/api/v1/timeframe_versions.json?from=2019-01-18T21:24:29Z&to=2019-01-18T21:24:31Z
         // https://rubygems.org/api/v1/timeframe_versions.json?from=2019-01-18T21:24:29&to=2019-01-20T21:24:29&page=0
-        let end_date = self.last_package_timestamp + Duration::days(2);
+        let end_date = self.last_package_timestamp + Duration::days(5);
         let mut results = vec![];
         let base_url = format!(
             "https://rubygems.org/api/v1/timeframe_versions.json?from={}&to={}",
