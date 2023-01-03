@@ -1,8 +1,8 @@
 name: Update Data
 on:
   workflow_dispatch:
-   schedule:
-     - cron: '*/30 * * * *'
+  schedule:
+   - cron: '*/30 * * * *'
 
 concurrency: ci-${{ github.ref }}
 
