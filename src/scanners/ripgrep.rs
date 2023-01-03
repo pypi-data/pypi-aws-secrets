@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::io::BufRead;
 use std::path::PathBuf;
@@ -33,7 +33,10 @@ pub struct RipGrepMatch {
 }
 
 pub fn run_ripgrep(args: &[&str]) -> Result<Vec<RipGrepMatch>> {
-    let output = Command::new("rg").args(args).output()?;
+    let output = Command::new("rg")
+        .args(args)
+        .output()
+        .with_context(|| format!("Error running rg with args {:?}", args))?;
 
     if !output.stderr.is_empty() {
         for line in output.stderr.lines().flatten() {

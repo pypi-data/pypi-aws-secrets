@@ -145,7 +145,7 @@ impl Scanner {
         Ok(matched_keys)
     }
 
-    pub fn download_package(&self, package: PackageToProcess) -> Result<DownloadedPackage> {
+    pub fn download_package(&self, package: &PackageToProcess) -> Result<DownloadedPackage> {
         let temp_dir = TempDir::new()?;
         let temp_dir_path = temp_dir.path();
         let download_dir = temp_dir_path.join("download");
@@ -160,7 +160,7 @@ impl Scanner {
             reqwest::blocking::get(package.download_url.to_string())?.error_for_status()?;
         io::copy(&mut resp, &mut out)?;
         Ok(DownloadedPackage {
-            package,
+            package: package.clone(),
             _temp_dir: temp_dir,
             extract_dir,
             download_path,

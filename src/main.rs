@@ -8,7 +8,7 @@ use crate::aws::check_aws_keys;
 use crate::scanners::Scanner;
 use crate::sources::SourceType;
 use crate::state::State;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 
 use crate::reporter::create_findings;
@@ -82,7 +82,9 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
             let source_data = state.data_for_source(&s);
             let mut source = s.create_source(source_data).expect("Error creating source");
             println!("Fetching data for source {}", source);
-            let packages = source.get_new_packages_to_process(limit)?;
+            let packages = source
+                .get_new_packages_to_process(limit)
+                .with_context(|| format!("Failed to get packages to process for source {:?}", s))?;
             println!("Source {:?} found {} packages", s, packages.len());
             let stats = source.get_stats();
             stats.add_packages_searched(packages.len() as u64);
@@ -101,11 +103,21 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
     let all_matches: Result<Vec<_>> = flat_packages
         .into_par_iter()
         .flat_map(|package| -> Result<_> {
-            let download = scanner.download_package(package)?;
+            let download = scanner.download_package(&package).with_context(|| {
+                format!(
+                    "Failed to download package {:?} / {} @ {}",
+                    package.source, package.name, package.version
+                )
+            })?;
             let name = download.package.name.clone();
             let version = download.package.version.clone();
             let source = download.package.source.clone();
-            let result = scanner.quick_check(download);
+            let result = scanner.quick_check(download).with_context(|| {
+                format!(
+                    "Error running quick check on {:?} / {} @ {}",
+                    source, name, version
+                )
+            });
             println!(
                 "Finished quick check on {:?} / {} @ {}",
                 source, name, version
@@ -119,13 +131,17 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
                 matched.downloaded_package.package.source,
                 matched.downloaded_package.package.name,
                 matched.downloaded_package.package.version,
-                matched.matches.iter().map(|v| { v.lines.chars().take(250).join("") }).join("\n\n")
+                matched
+                    .matches
+                    .iter()
+                    .map(|v| { v.lines.chars().take(250).join("") })
+                    .join("\n\n")
             );
             scanner.full_check(matched)
         })
         .collect();
 
-    let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect())?;
+    let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect()).context("Error checking AWS keys")?;
     println!("Live keys: {:?}", live_keys);
 
     create_findings(live_keys)?;

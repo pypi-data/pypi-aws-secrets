@@ -1,6 +1,6 @@
 use crate::sources::{PackageToProcess, Source, SourceStats, SourceType};
 use crate::state::SourceData;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, TimeZone, Utc};
 use chrono_humanize::HumanTime;
 use itertools::Itertools;
@@ -54,7 +54,9 @@ impl Source for PyPiSource {
     fn get_new_packages_to_process(&mut self, limit: usize) -> Result<Vec<PackageToProcess>> {
         let changelog_request =
             Request::new("changelog_since_serial").arg(self.changelog_serial as i32);
-        let res = changelog_request.call_url("https://pypi.org/pypi")?;
+        let res = changelog_request
+            .call_url("https://pypi.org/pypi")
+            .with_context(|| format!("Error getting changelog serial: {:?}", changelog_request))?;
         let changelog_items: Vec<_> = match res {
             Value::Array(items) => {
                 let only_xml_vecs = items.iter().filter_map(|item| match item {
@@ -101,10 +103,15 @@ impl Source for PyPiSource {
         let packages_to_process: Result<Vec<_>> = changelogs_by_packages
             .into_par_iter()
             .map(|((name, version), changelogs)| {
-                fetch_download_url_for_package(name, version, changelogs)
+                fetch_download_url_for_package(&name, &version, changelogs)
+                    .with_context(|| format!("Error fetching PyPi package {} - {}", name, version))
             })
             .collect();
-        let mut flattened_packages: Vec<_> = packages_to_process?.into_iter().flatten().collect();
+        let mut flattened_packages: Vec<_> = packages_to_process
+            .context("Error handling flattened packages")?
+            .into_iter()
+            .flatten()
+            .collect();
         flattened_packages.shuffle(&mut thread_rng());
         Ok(flattened_packages)
     }
@@ -157,19 +164,22 @@ pub struct PackageUrl {
 }
 
 fn fetch_download_url_for_package(
-    name: String,
-    version: String,
+    name: &String,
+    version: &String,
     changelogs: Vec<ChangelogItem>,
 ) -> Result<Vec<PackageToProcess>> {
     let url = format!("https://pypi.org/pypi/{name}/{version}/json");
-    let response = reqwest::blocking::get(url)?;
+    let response =
+        reqwest::blocking::get(&url).with_context(|| format!("Failed to request URL {}", url))?;
     if response.status() == 404 {
         return Ok(vec![]);
     }
 
     let file_names: HashSet<_> = changelogs.into_iter().map(|c| c.file_name).collect();
 
-    let response: PyPiResponse = response.json()?;
+    let response: PyPiResponse = response
+        .json()
+        .with_context(|| format!("Failed to read JSON for URL {}", url))?;
 
     let matching_urls = response
         .urls

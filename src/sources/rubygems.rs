@@ -1,7 +1,7 @@
 use crate::sources::{PackageToProcess, Source, SourceStats, SourceType};
 use crate::state::SourceData;
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::{anyhow, Context};
 use chrono::prelude::*;
 use chrono::Duration;
 use chrono_humanize::HumanTime;
@@ -62,8 +62,11 @@ impl Source for RubyGemsSource {
                 break;
             }
             let url = format!("{}&page={}", base_url, page);
-            let response = reqwest::blocking::get(url)?;
-            let ruby_response: Vec<RubyGemsResponse> = response.json()?;
+            let response = reqwest::blocking::get(&url)
+                .with_context(|| format!("Failed to request {}", url))?;
+            let ruby_response: Vec<RubyGemsResponse> = response
+                .json()
+                .with_context(|| format!("Failed to parse JSON from {}", url))?;
             if ruby_response.is_empty() {
                 break;
             } else {
