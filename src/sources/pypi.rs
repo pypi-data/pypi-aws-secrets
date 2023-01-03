@@ -174,18 +174,21 @@ fn fetch_download_url_for_package(
     let url = format!("https://pypi.org/pypi/{name}/{version}/json");
     let response =
         reqwest::blocking::get(&url).with_context(|| format!("Failed to request URL {}", url))?;
-    if response.status() == 404 {
+    // Some versions are not valid URLs. For example, `weightless-core @ 0.5.2.3-seecr-%`
+    // These result in 400's, in which case we just return [].
+    if response.status() == 404 || response.status() == 400 {
         return Ok(vec![]);
     }
 
     let file_names: HashSet<_> = changelogs.into_iter().map(|c| c.file_name).collect();
     let status = response.status();
+
     let text = response
         .text()
         .with_context(|| format!("Error fetching text for URL {}", url))?;
     let response: PyPiResponse = serde_json::from_str(&text).with_context(|| {
         format!(
-            "Failed to read JSON for URL {}. Status: {}. Text: {}",
+            "Failed to read JSON for URL {} - Status: {}. Text: {}",
             url, status, text
         )
     })?;
