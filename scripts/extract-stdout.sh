@@ -5,7 +5,7 @@ case "$1" in
     exec gzip -d -q -c "$1"
     ;;
   *.tar.bz2)
-    exec tar -xOzf "$1"
+    exec tar -xOf "$1"
     ;;
   *.gem)
     # Gemfiles are tar files with several individual gzip files inside.
