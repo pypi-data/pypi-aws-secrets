@@ -1,6 +1,6 @@
 mod ripgrep;
 
-pub use crate::scanners::ripgrep::{run_ripgrep, RipGrepMatch};
+use crate::scanners::ripgrep::{run_full_check, run_quick_search, RipGrepMatch};
 use crate::sources::PackageToProcess;
 use anyhow::Result;
 use itertools::Itertools;
@@ -11,16 +11,6 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::{fs, io};
 use temp_dir::TempDir;
-
-// Search for anything that looks like an AWS access key ID
-const QUICK_CHECK_REGEX: &str = "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))";
-
-// This is a bit ridiculous, but it searches for the AWS access key pattern above combined with
-// the secret key regex ([a-zA-Z0-9+/]{40}). This regex is too general, so we need to pair it with
-// an access key match that is between 0 and 4 lines of the secret key match.
-// It only looks for keys surrounded by quotes, else the false positive rate is too large.
-// It also supports secret keys being defined before the access key.
-const FULL_CHECK_REGEX: &str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))+|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))+";
 
 // Two regular expressions to extract access keys from the matches.
 lazy_static! {
@@ -86,36 +76,20 @@ impl Scanner {
         &self,
         package: DownloadedPackage,
     ) -> Result<Option<PossiblyMatchedPackage>> {
-        let matches = run_ripgrep(&[
-            "--pre",
-            "./scripts/extract-stdout.sh",
-            QUICK_CHECK_REGEX,
-            "--threads",
-            "1",
-            "-m",
-            "1",
-            "--json",
-            package.download_path.to_str().unwrap(),
-        ])?;
-        if matches.is_empty() {
-            Ok(None)
-        } else {
+        let matches = run_quick_search(&package.download_path)?;
+        if !matches.is_empty() {
             Ok(Some(PossiblyMatchedPackage {
                 downloaded_package: package,
                 matches,
             }))
+        } else {
+            Ok(None)
         }
     }
 
     pub fn full_check(&self, package: PossiblyMatchedPackage) -> Result<Vec<ScannerMatch>> {
         extract_package(&package.downloaded_package)?;
-        let matches = run_ripgrep(&[
-            "--multiline",
-            "-o",
-            FULL_CHECK_REGEX,
-            "--json",
-            package.downloaded_package.extract_dir.to_str().unwrap(),
-        ])?;
+        let matches = run_full_check(&package.downloaded_package.extract_dir)?;
         println!("matches: {:?}", matches);
         let mut matched_keys = vec![];
         // The output may contain multiple matches for our second-stage regex.

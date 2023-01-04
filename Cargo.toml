@@ -25,6 +25,7 @@ tinytemplate = "1.2.1"
 anyhow = "1.0.68"
 rand = "0.8.5"
 chrono-humanize = "0.2.2"
+grep = "0.2.10"
 
 [profile.release-lto]
 inherits = "release"
