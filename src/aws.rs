@@ -67,7 +67,7 @@ pub fn check_aws_keys(matches: Vec<ScannerMatch>) -> Result<Vec<LiveKey>> {
                     });
                 }
                 Err(e) => {
-                    eprintln!("sts error: {:?}", e);
+                    eprintln!("sts error: {e:?}");
                     continue;
                 }
             }

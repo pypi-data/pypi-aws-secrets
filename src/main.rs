@@ -81,10 +81,10 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
         .map(|s| -> Result<_> {
             let source_data = state.data_for_source(&s);
             let mut source = s.create_source(source_data).expect("Error creating source");
-            println!("Fetching data for source {}", source);
+            println!("Fetching data for source {source}");
             let packages = source
                 .get_new_packages_to_process(limit)
-                .with_context(|| format!("Failed to get packages to process for source {:?}", s))?;
+                .with_context(|| format!("Failed to get packages to process for source {s:?}"))?;
             println!("Source {:?} found {} packages", s, packages.len());
             let stats = source.get_stats();
             stats.add_packages_searched(packages.len() as u64);
@@ -114,13 +114,11 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
             let source = download.package.source.clone();
             let result = scanner.quick_check(download).with_context(|| {
                 format!(
-                    "Error running quick check on {:?} / {} @ {}",
-                    source, name, version
+                    "Error running quick check on {source:?} / {name} @ {version}"
                 )
             });
             println!(
-                "Finished quick check on {:?} / {} @ {}",
-                source, name, version
+                "Finished quick check on {source:?} / {name} @ {version}"
             );
             result
         })
@@ -143,7 +141,7 @@ fn run(state_path: PathBuf, save: bool, limit: usize, sources: Vec<SourceType>) 
 
     let live_keys = check_aws_keys(all_matches?.into_iter().flatten().collect())
         .context("Error checking AWS keys")?;
-    println!("Live keys: {:?}", live_keys);
+    println!("Live keys: {live_keys:?}");
 
     create_findings(live_keys)?;
 

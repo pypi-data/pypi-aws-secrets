@@ -61,12 +61,12 @@ impl Source for RubyGemsSource {
             if results.len() >= limit {
                 break;
             }
-            let url = format!("{}&page={}", base_url, page);
+            let url = format!("{base_url}&page={page}");
             let response = reqwest::blocking::get(&url)
-                .with_context(|| format!("Failed to request {}", url))?;
+                .with_context(|| format!("Failed to request {url}"))?;
             let ruby_response: Vec<RubyGemsResponse> = response
                 .json()
-                .with_context(|| format!("Failed to parse JSON from {}", url))?;
+                .with_context(|| format!("Failed to parse JSON from {url}"))?;
             if ruby_response.is_empty() {
                 break;
             } else {

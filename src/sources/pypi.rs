@@ -57,7 +57,7 @@ impl Source for PyPiSource {
             Request::new("changelog_since_serial").arg(self.changelog_serial as i32);
         let res = changelog_request
             .call_url("https://pypi.org/pypi")
-            .with_context(|| format!("Error getting changelog serial: {:?}", changelog_request))?;
+            .with_context(|| format!("Error getting changelog serial: {changelog_request:?}"))?;
         let changelog_items: Vec<_> = match res {
             Value::Array(items) => {
                 let only_xml_vecs = items.iter().filter_map(|item| match item {
@@ -84,7 +84,7 @@ impl Source for PyPiSource {
             .max_by_key(|v| *v)
             .ok_or_else(|| anyhow!("No changelog items found"))?;
 
-        println!("Highest timestamp: {}", highest_datetime);
+        println!("Highest timestamp: {highest_datetime}");
 
         self.changelog_serial = highest_serial;
         self.last_package_timestamp = Some(highest_datetime);
@@ -105,7 +105,7 @@ impl Source for PyPiSource {
             .into_par_iter()
             .map(|((name, version), changelogs)| {
                 fetch_download_url_for_package(&name, &version, changelogs)
-                    .with_context(|| format!("Error fetching PyPi package {} - {}", name, version))
+                    .with_context(|| format!("Error fetching PyPi package {name} - {version}"))
             })
             .collect();
         let mut flattened_packages: Vec<_> = packages_to_process
@@ -177,7 +177,7 @@ fn fetch_download_url_for_package(
         .get(&url)
         .header("User-Agent", "https://github.com/orf/aws-creds-scanner")
         .send()
-        .with_context(|| format!("Failed to request URL {}", url))?;
+        .with_context(|| format!("Failed to request URL {url}"))?;
     // Some versions are not valid URLs. For example, `weightless-core @ 0.5.2.3-seecr-%`
     // These result in 400's, in which case we just return [].
     if response.status() == 404 || response.status() == 400 {
@@ -189,11 +189,10 @@ fn fetch_download_url_for_package(
 
     let text = response
         .text()
-        .with_context(|| format!("Error fetching text for URL {}", url))?;
+        .with_context(|| format!("Error fetching text for URL {url}"))?;
     let response: PyPiResponse = serde_json::from_str(&text).with_context(|| {
         format!(
-            "Failed to read JSON for URL {} - Status: {}. Text: {}",
-            url, status, text
+            "Failed to read JSON for URL {url} - Status: {status}. Text: {text}"
         )
     })?;
 

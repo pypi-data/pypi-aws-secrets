@@ -87,7 +87,7 @@ pub fn create_findings(items: Vec<LiveKey>) -> Result<()> {
         ));
         let _ = fs::create_dir_all(output_dir);
         fs::write(&output_path, rendered).unwrap();
-        println!("Created file {:?}", output_path);
+        println!("Created file {output_path:?}");
     }
     Ok(())
 }

@@ -116,7 +116,7 @@ impl Scanner {
             "--json",
             package.downloaded_package.extract_dir.to_str().unwrap(),
         ])?;
-        println!("matches: {:?}", matches);
+        println!("matches: {matches:?}");
         let mut matched_keys = vec![];
         // The output may contain multiple matches for our second-stage regex.
         // Here we create a cartesian product product of all matches.

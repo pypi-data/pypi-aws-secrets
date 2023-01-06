@@ -60,7 +60,7 @@ impl Source for HexPmSource {
             if results.len() >= limit {
                 break;
             }
-            let url = format!("{}&page={}", base_url, page);
+            let url = format!("{base_url}&page={page}");
             // ToDo: Replace the user agent with a link to the repo
             let response = client
                 .get(url)
