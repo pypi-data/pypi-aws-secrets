@@ -171,9 +171,13 @@ fn fetch_download_url_for_package(
     version: &String,
     changelogs: Vec<ChangelogItem>,
 ) -> Result<Vec<PackageToProcess>> {
+    let client = reqwest::blocking::Client::new();
     let url = format!("https://pypi.org/pypi/{name}/{version}/json");
-    let response =
-        reqwest::blocking::get(&url).with_context(|| format!("Failed to request URL {}", url))?;
+    let response = client
+        .get(&url)
+        .header("User-Agent", "https://github.com/orf/aws-creds-scanner")
+        .send()
+        .with_context(|| format!("Failed to request URL {}", url))?;
     // Some versions are not valid URLs. For example, `weightless-core @ 0.5.2.3-seecr-%`
     // These result in 400's, in which case we just return [].
     if response.status() == 404 || response.status() == 400 {
