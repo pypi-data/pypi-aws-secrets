@@ -3,20 +3,20 @@
     "HexPm": {
       "last_package_timestamp": "2023-02-06T16:31:45.716624Z",
       "stats": {
-        "packages_searched": 3935
-      }
-    },
-    "PyPi": {
-      "changelog_serial": 16714418,
-      "last_package_timestamp": "2023-02-06T16:42:07Z",
-      "stats": {
-        "packages_searched": 628451
+        "packages_searched": 3936
       }
     },
     "RubyGems": {
-      "last_package_timestamp": "2023-02-06T16:38:34.587Z",
+      "last_package_timestamp": "2023-02-06T17:03:27.176Z",
       "stats": {
-        "packages_searched": 34784
+        "packages_searched": 34800
+      }
+    },
+    "PyPi": {
+      "changelog_serial": 16714625,
+      "last_package_timestamp": "2023-02-06T17:06:32Z",
+      "stats": {
+        "packages_searched": 628572
       }
     }
   }
