@@ -1,4 +1,4 @@
-# AWS keys found published to {package.source}
+# GCP Token found published to {package.source}
 
 * Package Name: {package.name}
 * Package Version: {package.version}

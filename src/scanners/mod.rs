@@ -12,21 +12,15 @@ use std::process::Command;
 use std::{fs, io};
 use temp_dir::TempDir;
 
-// Search for anything that looks like an AWS access key ID
-const QUICK_CHECK_REGEX: &str = "((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))";
-
-// This is a bit ridiculous, but it searches for the AWS access key pattern above combined with
-// the secret key regex ([a-zA-Z0-9+/]{40}). This regex is too general, so we need to pair it with
-// an access key match that is between 0 and 4 lines of the secret key match.
-// It only looks for keys surrounded by quotes, else the false positive rate is too large.
-// It also supports secret keys being defined before the access key.
-const FULL_CHECK_REGEX: &str = "(('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\").*?(\n^.*?){0,4}(('|\")[a-zA-Z0-9+/]{40}('|\"))+|('|\")[a-zA-Z0-9+/]{40}('|\").*?(\n^.*?){0,3}('|\")((?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16}))('|\"))+";
+// From https://github.com/odomojuli/RegExAPI
+const QUICK_CHECK_REGEX: &str = "AIza[0-9A-Za-z-_]{35}";
+const FULL_CHECK_REGEX: &str = "AIza[0-9A-Za-z-_]{35}";
 
 // Two regular expressions to extract access keys from the matches.
 lazy_static! {
     static ref ACCESS_KEY_REGEX: Regex =
-        Regex::new("(('|\")(?:ASIA|AKIA|AROA|AIDA)([A-Z0-7]{16})('|\"))").unwrap();
-    static ref SECRET_KEY_REGEX: Regex = Regex::new("(('|\")([a-zA-Z0-9+/]{40})('|\"))").unwrap();
+        Regex::new(FULL_CHECK_REGEX).unwrap();
+    // static ref SECRET_KEY_REGEX: Regex = Regex::new("(('|\")([a-zA-Z0-9+/]{40})('|\"))").unwrap();
 }
 
 #[derive(Debug, Clone)]
@@ -122,18 +116,12 @@ impl Scanner {
         // Here we create a cartesian product product of all matches.
         for rg_match in &matches {
             let matches = ACCESS_KEY_REGEX
-                .find_iter(&rg_match.lines)
-                .cartesian_product(
-                    SECRET_KEY_REGEX
-                        .find_iter(&rg_match.lines)
-                        .collect::<Vec<_>>(),
-                )
-                .map(|(key, secret)| (trim_quotes(key.as_str()), trim_quotes(secret.as_str())));
+                .find_iter(&rg_match.lines). map(|(key)| (trim_quotes(key.as_str()), trim_quotes(secret.as_str())));
 
             matched_keys.extend(
                 matches
                     .into_iter()
-                    .map(|(access_key, secret_key)| ScannerMatch {
+                    .map(|(access_key )| ScannerMatch {
                         downloaded_package: package.downloaded_package.clone(),
                         rg_match: rg_match.clone(),
                         access_key,
