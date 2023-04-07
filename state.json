@@ -6,17 +6,17 @@
         "packages_searched": 36749
       }
     },
+    "PyPi": {
+      "changelog_serial": 17620992,
+      "last_package_timestamp": "2023-04-07T16:42:24Z",
+      "stats": {
+        "packages_searched": 1133112
+      }
+    },
     "HexPm": {
       "last_package_timestamp": "2023-02-08T20:14:37.329308Z",
       "stats": {
         "packages_searched": 4113
-      }
-    },
-    "PyPi": {
-      "changelog_serial": 17620723,
-      "last_package_timestamp": "2023-04-07T16:16:59Z",
-      "stats": {
-        "packages_searched": 1132922
       }
     }
   }
