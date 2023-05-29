@@ -13,10 +13,10 @@
       }
     },
     "PyPi": {
-      "changelog_serial": 18294984,
-      "last_package_timestamp": "2023-05-29T22:36:51Z",
+      "changelog_serial": 18295201,
+      "last_package_timestamp": "2023-05-29T23:12:35Z",
       "stats": {
-        "packages_searched": 1533464
+        "packages_searched": 1533585
       }
     }
   }
