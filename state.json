@@ -1,10 +1,10 @@
 {
   "sources": {
     "PyPi": {
-      "changelog_serial": 18574648,
-      "last_package_timestamp": "2023-06-20T12:22:52Z",
+      "changelog_serial": 18575050,
+      "last_package_timestamp": "2023-06-20T12:55:56Z",
       "stats": {
-        "packages_searched": 1700024
+        "packages_searched": 1700239
       }
     },
     "HexPm": {
