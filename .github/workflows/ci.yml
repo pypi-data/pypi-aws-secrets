@@ -10,6 +10,7 @@ jobs:
   scan:
     name: Scan Data
     runs-on: ubuntu-latest
+    if: github.repository == 'pypi-data/pypi-aws-secrets'
     env:
       RAYON_NUM_THREADS: "10"
     steps:
