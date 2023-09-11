@@ -1,10 +1,10 @@
 {
   "sources": {
     "PyPi": {
-      "changelog_serial": 19704875,
-      "last_package_timestamp": "2023-09-11T23:05:58Z",
+      "changelog_serial": 19705001,
+      "last_package_timestamp": "2023-09-11T23:35:54Z",
       "stats": {
-        "packages_searched": 2388640
+        "packages_searched": 2388705
       }
     }
   }
