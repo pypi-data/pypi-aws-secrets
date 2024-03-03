@@ -1,3 +1,7 @@
+> **Note**
+> This repository has been superceded by the repositories within the https://github.com/pypi-data/ Github organisation.
+> See https://py-code.org/ for more information.
+
 # What is this?
 
 This is a project to try to detect any AWS access keys that are accidentally uploaded to the Python Package Index (PyPi).
